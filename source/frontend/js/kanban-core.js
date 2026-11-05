@@ -2,6 +2,8 @@ export const normalize=value=>String(value??'').normalize('NFD').replace(/[\u030
 
 export function operationKey(value){
   const key=normalize(value)
+  if(key==='APRODUZIR')return'A_PRODUZIR'
+  if(key==='FINALIZADO')return'FINALIZADO'
   if(key.startsWith('PREP'))return'PREP'
   if(key.startsWith('MONTGERAL'))return'MONTGERAL'
   if(key.startsWith('MONTELETR'))return'MONTELETR'
