@@ -1,5 +1,5 @@
 import {supabase} from './supabase.js'
-import {activeCards,deliveryRisk,demandByModel,pcpMetrics,suggestLots,unplanned,weeks,weekFor} from './pcp-core.js'
+import {activeCards,deliveryRisk,demandByModel,electricalCandidates,pcpMetrics,simulateWeek,suggestLots,unplanned,weeks,weekFor} from './pcp-core.js'
 import {fetchAllCards} from './data.js'
 
 const $=s=>document.querySelector(s),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
@@ -21,6 +21,8 @@ function render(){
   document.querySelectorAll('[data-week]').forEach(el=>{el.ondragover=e=>{if(canEdit())e.preventDefault()};el.ondrop=async e=>{e.preventDefault();const serie=e.dataTransfer.getData('text/plain');if(serie)await savePlanning([serie],el.dataset.week,'Reprogramação por arrastar e soltar')}})
   $('#lot-suggestions').innerHTML=suggestLots(list).slice(0,10).map(l=>`<article class="suggestion"><b>${esc(l.modelo)} · ${l.quantidade} fornos</b><p>${esc(l.series.slice(0,12).join(', '))}</p><small>${esc(l.justificativa)}</small></article>`).join('')||'<p>Nenhuma sugestão no filtro.</p>'
   const risks=activeCards(list).map(c=>({card:c,risk:deliveryRisk(c)})).filter(x=>['CRÍTICO','ATENÇÃO'].includes(x.risk.level)).sort((a,b)=>a.card.dias_para_entrega-b.card.dias_para_entrega);$('#risk-list').innerHTML=risks.slice(0,20).map(x=>`<p><b>${esc(x.risk.level)} · NS ${esc(x.card.n_serie)}</b><br><small>${esc(x.risk.reason)}</small></p>`).join('')||'<p>Nenhum risco determinável no filtro.</p>'
+  const electrical=electricalCandidates(list);$('#electrical-list').innerHTML=electrical.slice(0,20).map(c=>`<p><b>NS ${esc(c.n_serie)} · ${esc(c.modelo||'—')}</b><br><small>${esc(c.operacao_atual||'Programado')} · Semana ${fmt(c.planejado_para)}</small></p>`).join('')||'<p>Nenhuma necessidade antecipada no filtro.</p>'
+  $('#simulation-serie').innerHTML=activeCards(list).slice(0,200).map(c=>`<option value="${esc(c.n_serie)}">NS ${esc(c.n_serie)} · ${esc(c.modelo||'—')}</option>`).join('');$('#simulation-week').innerHTML=periods.map(w=>`<option value="${w.key}">${w.label}</option>`).join('')
 }
 async function load(force=false){
   if(!force&&Date.now()-lastSuccess<5000)return
@@ -40,6 +42,8 @@ $('#close-planning').onclick=()=>{$('#planning-dialog').close();selected.clear()
 $('#confirm-planning').onclick=async()=>savePlanning([...selected],$('#target-week').value,$('#planning-reason').value)
 async function savePlanning(series,week,reason){if(!canEdit())return;$('#planning-feedback').textContent='Salvando…';const rows=series.map(n_serie=>({n_serie,planejado_para:week,observacao_pcp:reason||null,updated_by:session.user.id}));const {error}=await supabase.schema('hd_kanban').from('planejamento_kanban').upsert(rows,{onConflict:'n_serie'});if(error){$('#planning-feedback').textContent=error.message;return}selected.clear();dirty=false;$('#planning-dialog').close();await load(true)}
 $('#view-history').onclick=async()=>{const {data,error}=await supabase.schema('hd_kanban').from('historico_planejamento').select('n_serie,semana_anterior,semana_nova,prioridade_anterior,prioridade_nova,justificativa,alterado_em').order('alterado_em',{ascending:false}).limit(100);$('#history-table').innerHTML=error?esc(error.message):`<div class="table-wrap"><table><thead><tr><th>Série</th><th>Anterior</th><th>Nova</th><th>Justificativa</th><th>Data</th></tr></thead><tbody>${(data||[]).map(h=>`<tr><td>${esc(h.n_serie)}</td><td>${fmt(h.semana_anterior)}</td><td>${fmt(h.semana_nova)}</td><td>${esc(h.justificativa||'—')}</td><td>${new Date(h.alterado_em).toLocaleString('pt-BR')}</td></tr>`).join('')}</tbody></table></div>`;$('#planning-history').showModal()};$('#close-history').onclick=()=>$('#planning-history').close()
+$('#run-simulation').onclick=()=>{const serie=$('#simulation-serie').value,week=$('#simulation-week').value,result=simulateWeek(cards,[{n_serie:serie,planejado_para:week}]),before=cards.find(c=>String(c.n_serie)===serie),after=result.find(c=>String(c.n_serie)===serie);$('#simulation-result').innerHTML=`<p><b>NS ${esc(serie)}</b><br>Atual: ${fmt(before?.planejado_para)} → Simulado: ${fmt(after?.planejado_para)}</p><small>Nenhum dado oficial foi alterado.</small>`}
+$('#discard-simulation').onclick=()=>{$('#simulation-result').innerHTML='<p>Cenário descartado. Planejamento oficial preservado.</p>'}
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&navigator.onLine)load()});window.addEventListener('online',()=>load(true));window.addEventListener('offline',()=>status('Dados desatualizados · sem conexão',true))
 supabase.auth.onAuthStateChange((_event,current)=>setTimeout(()=>show(current),0));const {data:{session:current}}=await supabase.auth.getSession();await show(current)
 
