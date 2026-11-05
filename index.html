@@ -1,6 +1,6 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HD Kanban</title><style>[hidden]{display:none!important}</style>  <script type="module" crossorigin src="./assets/main-C6MnsruL.js"></script>
-  <link rel="modulepreload" crossorigin href="./assets/supabase-CtXR_kXy.js">
-  <link rel="stylesheet" crossorigin href="./assets/supabase-0vL-Fcvs.css">
+<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HD Kanban</title><style>[hidden]{display:none!important}</style>  <script type="module" crossorigin src="./assets/main-ChsSlC9A.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/data-DL1bFt76.js">
+  <link rel="stylesheet" crossorigin href="./assets/data-0vL-Fcvs.css">
 </head>
 <body><section id="login" class="login"><form id="login-form"><h1>HD Kanban</h1><p>Planejamento e acompanhamento da produção</p><input id="email" type="email" placeholder="E-mail" required><input id="password" type="password" placeholder="Senha"><button>Entrar</button><button id="magic-link" type="button">Enviar link de acesso</button><small id="login-error"></small></form></section>
 <main id="app" hidden><header><div class="brand"><strong>HD Medeiros</strong><span>Kanban Operacional</span></div><nav aria-label="Navegação principal"><a class="active" href="./">Kanban</a><a href="./pcp.html">PCP de Produção</a></nav><div class="session"><span id="sync-status" data-kind="reconnecting">Carregando…</span><span id="user-label"></span><button id="logout">Sair</button></div></header>
@@ -9,6 +9,7 @@
 <section class="filters"><input id="search" placeholder="Nº série, cliente, modelo ou operador"><select id="status-caixa"><option value="">Todas as caixas</option><option>COMPRAR</option><option>ESTOQUE</option><option>COMPRADA</option><option>COMPRADO</option></select><label><input id="only-late" type="checkbox"> Atrasados</label><label><input id="only-open" type="checkbox"> Em operação</label><label><input id="only-blocked" type="checkbox"> Bloqueados</label><label>Finalizados: <select id="finalized-period"><option value="60" selected>Últimos 60 dias</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="2026">Ano de 2026</option><option value="custom">Período personalizado</option><option value="all">Todos os períodos</option></select></label><label id="finalized-dates" hidden>De <input id="finalized-from" type="date"> até <input id="finalized-to" type="date"></label></section>
 <section id="board" class="board"></section></main>
 <dialog id="details"><button id="close-details" class="close">×</button><div id="details-content"></div></dialog>
-<dialog id="issues"><button id="close-issues" class="close">×</button><div id="issues-content"></div></dialog></body></html>
+<dialog id="issues"><button id="close-issues" class="close">×</button><div id="issues-content"></div></dialog>
+<dialog id="column-view"><button id="close-column" class="close">×</button><h2 id="column-title"></h2><input id="column-search" placeholder="Pesquisar série, modelo ou cliente"><div id="column-results" class="cards"></div></dialog></body></html>
 
 
