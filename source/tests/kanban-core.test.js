@@ -8,6 +8,7 @@ test('cada forno recebe uma única classificação principal',()=>{
   assert.equal(classifyCard({status_forno:'FINALIZADO',operacao_atual:'PREP',apontamento_aberto:true},operations),'FINALIZADO')
   assert.equal(classifyCard({status_forno:'FABRICAÇÃO',operacao_atual:'MONT.GERAL',ultima_movimentacao:'2026-01-01'},operations),'MONTGERAL')
   assert.equal(classifyCard({status_forno:'FABRICAÇÃO'},operations),'A_PRODUZIR')
+  assert.equal(classifyCard({status_forno:'FABRICAÇÃO',tem_apontamento_produtivo:false,ultima_movimentacao:'2026-01-01'},operations),'A_PRODUZIR')
 })
 
 test('duplicatas são diagnosticadas e removidas sem multiplicar indicadores',()=>{
@@ -19,5 +20,11 @@ test('duplicatas são diagnosticadas e removidas sem multiplicar indicadores',()
 
 test('registros desconhecidos permanecem visíveis como pendência',()=>{
   assert.equal(classifyCard({operacao_atual:'OPERAÇÃO NOVA',ultima_movimentacao:'2026-01-01'},operations),'PENDENCIA')
+})
+
+test('diagnóstico distingue dados insuficientes de erro produtivo',()=>{
+  const issues=diagnose([{n_serie:'2964',status_forno:'FINALIZADO',situacao_finalizacao:'DADOS_INSUFICIENTES'}],operations)
+  assert.equal(issues[0].type,'DADOS_INSUFICIENTES')
+  assert.match(issues[0].action,/sincronização/i)
 })
 
