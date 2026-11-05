@@ -9,6 +9,7 @@ export function weeks(count=5,reference=new Date()){
 }
 export function weekFor(card,periods){const date=dateOnly(card.planejado_para);return date?periods.find(w=>date>=w.start&&date<=w.end):undefined}
 export function activeCards(cards){return cards.filter(c=>c.status_forno!=='FINALIZADO')}
+export const hasProduction=card=>card.tem_apontamento_produtivo===true||(!('tem_apontamento_produtivo' in card)&&Boolean(card.ultima_movimentacao))
 export function demandByModel(cards){
   const totals=new Map()
   for(const card of activeCards(cards)){const model=String(card.modelo||'Não informado').trim()||'Não informado';totals.set(model,(totals.get(model)||0)+1)}
@@ -18,7 +19,7 @@ export function pcpMetrics(cards,reference=new Date()){
   const active=activeCards(cards),periods=weeks(5,reference),thisWeek=periods[0]
   const deliveryThisWeek=active.filter(c=>{const d=dateOnly(c.data_entrega);return d&&d>=thisWeek.start&&d<=thisWeek.end}).length
   const in15=new Date(reference);in15.setHours(23,59,59,999);in15.setDate(in15.getDate()+15)
-  return{total:active.length,fabricacao:active.filter(c=>c.ultima_movimentacao).length,naoIniciados:active.filter(c=>!c.ultima_movimentacao).length,atrasados:active.filter(c=>c.atrasado).length,entregasSemana:deliveryThisWeek,entregas15:active.filter(c=>{const d=dateOnly(c.data_entrega);return d&&d>=reference&&d<=in15}).length,planejadosSemana:active.filter(c=>weekFor(c,[thisWeek])).length,semProgramacao:active.filter(c=>!c.planejado_para).length,bloqueados:active.filter(c=>c.bloqueado).length}
+  return{total:active.length,fabricacao:active.filter(hasProduction).length,aProduzir:active.filter(c=>!hasProduction(c)).length,atrasados:active.filter(c=>c.atrasado).length,entregasSemana:deliveryThisWeek,entregas15:active.filter(c=>{const d=dateOnly(c.data_entrega);return d&&d>=reference&&d<=in15}).length,planejadosSemana:active.filter(c=>weekFor(c,[thisWeek])).length,planejados:active.filter(c=>c.planejado_para).length,semProgramacao:active.filter(c=>!c.planejado_para).length,bloqueados:active.filter(c=>c.bloqueado).length}
 }
 export function unplanned(cards){return activeCards(cards).filter(c=>!c.planejado_para).sort((a,b)=>Number(Boolean(b.atrasado))-Number(Boolean(a.atrasado))||String(a.data_entrega||'9999').localeCompare(String(b.data_entrega||'9999'))||Number(b.prioridade||0)-Number(a.prioridade||0))}
 

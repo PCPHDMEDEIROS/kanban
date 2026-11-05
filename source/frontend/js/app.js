@@ -1,11 +1,13 @@
 import {supabase} from './supabase.js'
 import {classifyCard,diagnose,finalizedDate,metrics,operationKey,uniqueCards} from './kanban-core.js'
+import {fetchAllCards} from './data.js'
 
 const state={cards:[],operations:[],issues:[],limits:{},view:localStorage.getItem('hd-kanban-view')||'compact',metricMode:localStorage.getItem('hd-kanban-metrics')||'filtered',lastSuccess:0,retry:0}
 const $=s=>document.querySelector(s)
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
 let realtimeChannel=null,reloadTimer=null,pollTimer=null,retryTimer=null,loadPromise=null,loadAgain=false
 const PAGE_SIZE=20,MIN_REFRESH=5000
+const initialLimit=key=>['A_PRODUZIR','FINALIZADO'].includes(key)?10:15
 
 async function login(email,password){const {error}=await supabase.auth.signInWithPassword({email,password});if(error)throw error}
 async function magicLink(email){const {error}=await supabase.auth.signInWithOtp({email,options:{emailRedirectTo:location.href}});if(error)throw error}
@@ -17,12 +19,12 @@ async function load({force=false}={}){
   clearTimeout(retryTimer);setStatus('reconnecting','Atualizando…')
   loadPromise=(async()=>{
     const [cardsResult,operationsResult]=await Promise.all([
-      supabase.schema('hd_kanban').from('kanban_fornos').select('*').order('ordem_coluna'),
+      fetchAllCards(supabase),
       supabase.schema('hd_kanban').from('operacoes').select('*').eq('ativo',true).eq('considerar_no_kanban',true).order('ordem')
     ])
-    if(cardsResult.error)throw cardsResult.error
     if(operationsResult.error)throw operationsResult.error
-    const raw=cardsResult.data??[]
+    if(!cardsResult.complete)throw new Error(`Carga incompleta: ${cardsResult.rows.length} de ${cardsResult.total}`)
+    const raw=cardsResult.rows
     state.cards=uniqueCards(raw);state.operations=operationsResult.data??[]
     state.issues=diagnose(raw,state.operations.map(x=>x.codigo))
     state.lastSuccess=Date.now();state.retry=0;render()
@@ -65,7 +67,7 @@ function render(){
   $('#issues-count').textContent=state.issues.length
   const operationCodes=state.operations.map(x=>x.codigo),codes=operationCodes.map(operationKey)
   $('#board').innerHTML=state.operations.map(op=>{
-    const key=operationKey(op.codigo),initial=['A_PRODUZIR','FINALIZADO'].includes(op.codigo)?10:15
+    const key=operationKey(op.codigo),initial=initialLimit(key)
     const list=sortCards(filtered.filter(c=>classifyCard(c,operationCodes)===key),op.codigo)
     const limit=state.limits[key]??initial,shown=list.slice(0,limit),remaining=list.length-shown.length
     return `<article class="column" data-column="${key}"><h2><span>${esc(op.nome)}</span><span>${list.length}</span></h2><div class="cards">${shown.map(card).join('')||'<p class="empty">Nenhum forno neste filtro.</p>'}</div><footer>${remaining>0?`<span>Exibindo ${shown.length} de ${list.length}</span><button data-more="${key}">Carregar mais ${Math.min(PAGE_SIZE,remaining)}</button><button data-all="${key}">Ver todos</button>`:''}${limit>initial?`<button data-collapse="${key}">Recolher</button>`:''}</footer></article>`
@@ -75,9 +77,16 @@ function render(){
 function pendingColumn(filtered,codes){const list=filtered.filter(c=>classifyCard(c,codes)==='PENDENCIA');return list.length?`<article class="column pending"><h2><span>Pendências de Dados</span><span>${list.length}</span></h2><div class="cards">${list.slice(0,20).map(card).join('')}</div></article>`:''}
 function bindBoardActions(){
   document.querySelectorAll('.card').forEach(el=>{el.onclick=()=>detail(el.dataset.serie);el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();detail(el.dataset.serie)}}})
-  document.querySelectorAll('[data-more]').forEach(b=>b.onclick=()=>{state.limits[b.dataset.more]=(state.limits[b.dataset.more]||15)+PAGE_SIZE;render()})
-  document.querySelectorAll('[data-all]').forEach(b=>b.onclick=()=>{state.limits[b.dataset.all]=Number.MAX_SAFE_INTEGER;render()})
+  document.querySelectorAll('[data-more]').forEach(b=>b.onclick=()=>{state.limits[b.dataset.more]=(state.limits[b.dataset.more]??initialLimit(b.dataset.more))+PAGE_SIZE;render()})
+  document.querySelectorAll('[data-all]').forEach(b=>b.onclick=()=>openColumn(b.dataset.all))
   document.querySelectorAll('[data-collapse]').forEach(b=>b.onclick=()=>{delete state.limits[b.dataset.collapse];render()})
+}
+function openColumn(key){
+  const operationCodes=state.operations.map(x=>x.codigo),op=state.operations.find(x=>operationKey(x.codigo)===key)
+  const list=sortCards(state.cards.filter(visible).filter(c=>classifyCard(c,operationCodes)===key),op?.codigo)
+  $('#column-title').textContent=`${op?.nome||key} — ${list.length} fornos`;$('#column-search').value=''
+  const draw=()=>{const q=$('#column-search').value.toLowerCase(),filtered=list.filter(c=>[c.n_serie,c.modelo,c.cliente].some(v=>String(v??'').toLowerCase().includes(q)));$('#column-results').innerHTML=filtered.slice(0,100).map(card).join('')+`<p class="empty">Exibindo ${Math.min(100,filtered.length)} de ${filtered.length}</p>`;document.querySelectorAll('#column-results .card').forEach(el=>el.onclick=()=>detail(el.dataset.serie))}
+  $('#column-search').oninput=draw;draw();$('#column-view').showModal()
 }
 
 let detailOffset=0,detailSerie=null
@@ -108,7 +117,8 @@ document.querySelectorAll('.filters input,.filters select').forEach(x=>x.oninput
 $('#finalized-period').onchange=()=>{$('#finalized-dates').hidden=$('#finalized-period').value!=='custom';render()}
 $('#metric-mode').value=state.metricMode;$('#metric-mode').onchange=e=>{state.metricMode=e.target.value;localStorage.setItem('hd-kanban-metrics',state.metricMode);render()}
 $('#view-mode').value=state.view;$('#view-mode').onchange=e=>{state.view=e.target.value;localStorage.setItem('hd-kanban-view',state.view);render()}
-$('#issues-button').onclick=()=>{const body=state.issues.map(x=>`<li><b>${esc(x.card.n_serie||'Sem série')}</b> — ${esc(x.type)}</li>`).join('');$('#issues-content').innerHTML=`<h2>Pendências de Dados</h2><p>Diagnóstico somente leitura; nenhum apontamento foi alterado.</p><ul>${body||'<li>Nenhuma pendência detectada.</li>'}</ul>`;$('#issues').showModal()};$('#close-issues').onclick=()=>$('#issues').close()
+$('#issues-button').onclick=()=>{const body=state.issues.map(x=>`<tr><td>${esc(x.card.n_serie||'Sem série')}</td><td>${esc(x.type)}</td><td>${esc(x.evidence||'Regra de classificação')}</td><td>${esc(x.action||'Consultar cadastro')}</td></tr>`).join('');$('#issues-content').innerHTML=`<h2>Pendências de Dados</h2><p>Diagnóstico somente leitura · verificado em ${new Date().toLocaleString('pt-BR')}</p><div class="table-wrap"><table><thead><tr><th>Série</th><th>Tipo</th><th>Evidência</th><th>Ação recomendada</th></tr></thead><tbody>${body||'<tr><td colspan="4">Nenhuma pendência detectada.</td></tr>'}</tbody></table></div>`;$('#issues').showModal()};$('#close-issues').onclick=()=>$('#issues').close()
+$('#close-column').onclick=()=>$('#column-view').close()
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&navigator.onLine)load()});window.addEventListener('online',()=>load({force:true}));window.addEventListener('offline',()=>setStatus('stale','Dados desatualizados · sem conexão'))
 supabase.auth.onAuthStateChange((_event,session)=>{setTimeout(()=>showSession(session),0)})
 const {data:{session}}=await supabase.auth.getSession();await showSession(session)
