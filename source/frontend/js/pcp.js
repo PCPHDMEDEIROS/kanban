@@ -1,5 +1,5 @@
 import {supabase} from './supabase.js'
-import {activeCards,demandByModel,pcpMetrics,unplanned,weeks,weekFor} from './pcp-core.js'
+import {activeCards,deliveryRisk,demandByModel,pcpMetrics,suggestLots,unplanned,weeks,weekFor} from './pcp-core.js'
 import {fetchAllCards} from './data.js'
 
 const $=s=>document.querySelector(s),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
@@ -19,6 +19,8 @@ function render(){
   document.querySelectorAll('[data-select-serie]').forEach(el=>el.onchange=()=>{el.checked?selected.add(el.dataset.selectSerie):selected.delete(el.dataset.selectSerie);dirty=selected.size>0;$('#plan-selected').hidden=!canEdit()||!selected.size})
   document.querySelectorAll('[data-planned-serie]').forEach(el=>el.ondragstart=e=>e.dataTransfer.setData('text/plain',el.dataset.plannedSerie))
   document.querySelectorAll('[data-week]').forEach(el=>{el.ondragover=e=>{if(canEdit())e.preventDefault()};el.ondrop=async e=>{e.preventDefault();const serie=e.dataTransfer.getData('text/plain');if(serie)await savePlanning([serie],el.dataset.week,'Reprogramação por arrastar e soltar')}})
+  $('#lot-suggestions').innerHTML=suggestLots(list).slice(0,10).map(l=>`<article class="suggestion"><b>${esc(l.modelo)} · ${l.quantidade} fornos</b><p>${esc(l.series.slice(0,12).join(', '))}</p><small>${esc(l.justificativa)}</small></article>`).join('')||'<p>Nenhuma sugestão no filtro.</p>'
+  const risks=activeCards(list).map(c=>({card:c,risk:deliveryRisk(c)})).filter(x=>['CRÍTICO','ATENÇÃO'].includes(x.risk.level)).sort((a,b)=>a.card.dias_para_entrega-b.card.dias_para_entrega);$('#risk-list').innerHTML=risks.slice(0,20).map(x=>`<p><b>${esc(x.risk.level)} · NS ${esc(x.card.n_serie)}</b><br><small>${esc(x.risk.reason)}</small></p>`).join('')||'<p>Nenhum risco determinável no filtro.</p>'
 }
 async function load(force=false){
   if(!force&&Date.now()-lastSuccess<5000)return
