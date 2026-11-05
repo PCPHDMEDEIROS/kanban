@@ -1,10 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {classifyCard,diagnose,metrics,uniqueCards} from '../frontend/js/kanban-core.js'
+import {classifyCard,diagnose,metrics,operationKey,uniqueCards} from '../frontend/js/kanban-core.js'
 
 const operations=['A_PRODUZIR','PREP','MONT.GERAL','ACAB.','FINALIZADO']
 
 test('cada forno recebe uma única classificação principal',()=>{
+  assert.equal(operationKey('A_PRODUZIR'),'A_PRODUZIR')
   assert.equal(classifyCard({status_forno:'FINALIZADO',operacao_atual:'PREP',apontamento_aberto:true},operations),'FINALIZADO')
   assert.equal(classifyCard({status_forno:'FABRICAÇÃO',operacao_atual:'MONT.GERAL',ultima_movimentacao:'2026-01-01'},operations),'MONTGERAL')
   assert.equal(classifyCard({status_forno:'FABRICAÇÃO'},operations),'A_PRODUZIR')
