@@ -1,3 +1,13 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HD Medeiros — PCP</title>  <link rel="stylesheet" crossorigin href="./assets/app-0vL-Fcvs.css">
-</head><body><main class="placeholder"><h1>PCP de Produção</h1><p>A estrutura do planejamento será implementada na Fase 2 após o mapeamento e homologação da Fase 1.</p><a href="./">Voltar ao Kanban Operacional</a></main></body></html>
+<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HD Medeiros — PCP</title><style>[hidden]{display:none!important}</style>  <script type="module" crossorigin src="./assets/pcp-Dm9rO2wl.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/supabase-CtXR_kXy.js">
+  <link rel="stylesheet" crossorigin href="./assets/supabase-0vL-Fcvs.css">
+  <link rel="stylesheet" crossorigin href="./assets/pcp-XRzA1S-J.css">
+</head><body>
+<section id="pcp-login" class="login"><form id="pcp-login-form"><h1>PCP de Produção</h1><p>Use a mesma conta do Kanban.</p><input id="pcp-email" type="email" placeholder="E-mail" required><input id="pcp-password" type="password" placeholder="Senha" required><button>Entrar</button><small id="pcp-login-error"></small></form></section>
+<main id="pcp-app" hidden><header><div class="brand"><strong>HD Medeiros</strong><span>PCP de Produção</span></div><nav><a href="./">Kanban</a><a class="active" href="./pcp.html">PCP de Produção</a></nav><div class="session"><span id="pcp-status">Carregando…</span><span id="pcp-user"></span><button id="pcp-logout">Sair</button></div></header>
+<section class="toolbar"><input id="pcp-search" placeholder="Série, cliente ou modelo"><select id="pcp-model"><option value="">Todos os modelos</option></select></section>
+<section id="pcp-metrics" class="metrics"></section>
+<section class="pcp-grid"><article class="panel"><h2>Demanda por modelo</h2><div class="table-wrap"><table><thead><tr><th>Modelo</th><th>Fornos</th><th>Participação</th></tr></thead><tbody id="demand-body"></tbody></table></div></article><article class="panel capacity-note"><h2>Capacidade produtiva</h2><strong>Não configurado</strong><p>Nenhum tempo padrão, quantidade de operadores ou jornada foi presumido. Esses dados serão cadastrados na fase de capacidade.</p></article></section>
+<section class="panel full"><h2>Planejamento semanal</h2><p class="muted-text">Movimentar semanas será habilitado após as regras de permissão e auditoria. Esta visualização não altera apontamentos.</p><div id="weeks" class="weeks"></div></section>
+<section class="panel full"><h2>Fornos não programados <span id="unplanned-count">0</span></h2><div class="table-wrap"><table><thead><tr><th>Série</th><th>Modelo</th><th>Cliente</th><th>Entrega</th><th>Dias</th><th>Operação</th><th>Prioridade</th></tr></thead><tbody id="unplanned-body"></tbody></table></div><p class="muted-text">Exibição limitada aos 100 primeiros registros ordenados por atraso, entrega e prioridade.</p></section></main></body></html>
 
