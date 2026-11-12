@@ -35,7 +35,7 @@ Os dados cresceram desde a fotografia anterior (42 lotes e 83 vínculos) e perma
 - RLS está habilitado nas tabelas do esquema `hd_kanban`.
 - A RPC `aprovar_simulacao_pcp` é `SECURITY INVOKER`.
 - A RPC só possui `EXECUTE` para `authenticated`; `anon` e `PUBLIC` não possuem acesso.
-- A RPC `reprogramar_pcp` ainda não existe no produtivo. A migração está versionada, mas depende de autorização explícita antes da homologação funcional de movimentação.
+- A RPC `reprogramar_pcp` está instalada como `SECURITY INVOKER`, com execução concedida somente a `authenticated` e autorização interna restrita aos perfis `ADMIN` e `PCP`.
 - Todas as funções `SECURITY DEFINER` existentes estão restritas ao proprietário `postgres`; não são executáveis por `anon`, `authenticated` ou `PUBLIC`.
 - As políticas administrativas usam `app_metadata.hd_role`, não `user_metadata`.
 - A tabela `integracao_segredos` possui RLS e nenhuma política. O advisor registra isso como informativo; neste caso o comportamento é intencionalmente bloqueado para clientes da Data API. [Referência do advisor](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy).
@@ -74,14 +74,14 @@ Build Vite concluído com sucesso para:
 ## Migrações aplicadas e pendentes
 
 - `capacidade_eletrica_complementos`: aplicada anteriormente e confirmada no histórico remoto como `20261112112758`.
-- `reprogramacao_transacional_pcp`: pendente; necessária para mover e retirar itens no Kanban PCP.
-- `limite_mensal_programacao`: pendente; necessária para proteção do limite mensal também no banco.
+- `reprogramacao_transacional_pcp`: aplicada no produtivo como versão `20261112133534`.
+- `limite_mensal_programacao`: aplicada no produtivo como versão `20261112133757`.
 
-Nenhuma migração foi aplicada nesta etapa de homologação.
+Após as migrações, permaneceram 87 planejamentos com semana, 45 lotes ativos e 87 vínculos ativos, sem duplicidades ou órfãos. A meta `meta_mensal_pcp` foi registrada como 100 e o trigger `planejamento_limite_mensal` está ativo. A função interna do trigger não possui execução para `PUBLIC`, `anon` ou `authenticated`.
 
 ## Pendências antes da publicação
 
-- Obter autorização explícita para as migrações `reprogramacao_transacional_pcp` e `limite_mensal_programacao`.
+- Executar homologação funcional da movimentação, retirada da programação e limite mensal com perfis reais de teste.
 - Repetir a fotografia imediatamente antes e depois da migração.
 - Testar os perfis `ADMIN`, `PCP`, `ELETRICA` e `CONSULTA` com usuários de homologação.
 - Validar gravação de capacidade, tempo padrão, preparação elétrica e respectivos históricos.
@@ -92,4 +92,4 @@ Nenhuma migração foi aplicada nesta etapa de homologação.
 
 ## Conclusão
 
-O código passou na validação automatizada e a base atual não apresenta duplicidades ou vínculos órfãos. A publicação ainda não está autorizada porque as RPCs/regras pendentes e os testes funcionais por perfil dependem de uma janela controlada.
+O código passou na validação automatizada, as migrações autorizadas foram aplicadas e a base não apresenta duplicidades ou vínculos órfãos. A publicação ainda não está autorizada porque faltam os testes funcionais por perfil e o aceite final de homologação.
