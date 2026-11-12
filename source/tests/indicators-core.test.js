@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {cumulativeProduction,deliveryRadar,demandByModel,executiveIndicators,operationQueues,operationTimes,plannedVsActual} from '../frontend/js/indicators-core.js'
+import {cumulativeProduction,dateInPeriod,deliveryRadar,demandByModel,executiveIndicators,operationQueues,operationTimes,plannedVsActual,scopeCardsByDate} from '../frontend/js/indicators-core.js'
 
 const cards=[
  {forno_id:'a',modelo:'A',status_forno:'FINALIZADO',data_finalizacao:'2026-11-05T12:00:00Z',planejamento_original_para:'2026-11-02',planejado_para:'2026-11-02'},
@@ -15,4 +15,4 @@ test('tempos recompõem datas base 1899 usando data real',()=>{const result=oper
 test('planejado versus realizado preserva plano original',()=>{const [row]=plannedVsActual(cards);assert.ok(row.original>=1);assert.ok(row.finished>=1)})
 test('radar mantém risco não calculado quando falta entrega',()=>{const radar=deliveryRadar([...cards,{forno_id:'d',status_forno:'FABRICAÇÃO'}]);assert.equal(radar.RISCO_NAO_CALCULADO.length,1);assert.equal(radar.ATRASADOS.length,1)})
 test('curva acumulada usa finalizações reais',()=>{const curve=cumulativeProduction(cards,'2026-11',100);assert.equal(curve.at(-1).actual,1);assert.equal(Math.round(curve.at(-1).target),100)})
-
+test('períodos usam a data própria do indicador e limites inclusivos',()=>{assert.equal(dateInPeriod('2026-11-30T18:00:00Z','2026-11-01','2026-11-30'),true);assert.equal(dateInPeriod(null,'2026-11-01','2026-11-30'),false);assert.deepEqual(scopeCardsByDate(cards,'data_entrega','2026-11-15','2026-11-15').map(card=>card.forno_id),['b'])})
