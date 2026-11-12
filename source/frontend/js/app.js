@@ -1,6 +1,7 @@
 import {supabase} from './supabase.js'
 import {classifyCard,diagnose,finalizedDate,metrics,operationKey,uniqueCards} from './kanban-core.js'
 import {fetchAllCards} from './data.js'
+import {COLOR_LEGEND} from './visual-config.js'
 
 const state={cards:[],operations:[],issues:[],limits:{},view:localStorage.getItem('hd-kanban-view')||'compact',metricMode:localStorage.getItem('hd-kanban-metrics')||'filtered',lastSuccess:0,retry:0}
 const $=s=>document.querySelector(s)
@@ -118,6 +119,11 @@ $('#finalized-period').onchange=()=>{$('#finalized-dates').hidden=$('#finalized-
 $('#metric-mode').value=state.metricMode;$('#metric-mode').onchange=e=>{state.metricMode=e.target.value;localStorage.setItem('hd-kanban-metrics',state.metricMode);render()}
 $('#view-mode').value=state.view;$('#view-mode').onchange=e=>{state.view=e.target.value;localStorage.setItem('hd-kanban-view',state.view);render()}
 $('#issues-button').onclick=()=>{const body=state.issues.map(x=>`<tr><td>${esc(x.card.n_serie||'Sem série')}</td><td>${esc(x.type)}</td><td>${esc(x.evidence||'Regra de classificação')}</td><td>${esc(x.action||'Consultar cadastro')}</td></tr>`).join('');$('#issues-content').innerHTML=`<h2>Pendências de Dados</h2><p>Diagnóstico somente leitura · verificado em ${new Date().toLocaleString('pt-BR')}</p><div class="table-wrap"><table><thead><tr><th>Série</th><th>Tipo</th><th>Evidência</th><th>Ação recomendada</th></tr></thead><tbody>${body||'<tr><td colspan="4">Nenhuma pendência detectada.</td></tr>'}</tbody></table></div>`;$('#issues').showModal()};$('#close-issues').onclick=()=>$('#issues').close()
+const legend=$('#color-legend')
+$('#legend-content').innerHTML=`<div class="legend-sections">${COLOR_LEGEND.map(section=>`<section class="legend-section"><h3>${esc(section.title)}</h3><ul class="legend-list">${section.items.map(item=>`<li class="legend-item"><span class="legend-swatch ${esc(item.className)}" aria-hidden="true"></span><span><strong>${esc(item.label)}:</strong> ${esc(item.description)}</span></li>`).join('')}</ul></section>`).join('')}</div>`
+$('#legend-button').onclick=()=>legend.showModal()
+$('#close-legend').onclick=()=>legend.close()
+legend.addEventListener('click',event=>{if(event.target===legend)legend.close()})
 $('#close-column').onclick=()=>$('#column-view').close()
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&navigator.onLine)load()});window.addEventListener('online',()=>load({force:true}));window.addEventListener('offline',()=>setStatus('stale','Dados desatualizados · sem conexão'))
 supabase.auth.onAuthStateChange((_event,session)=>{setTimeout(()=>showSession(session),0)})
