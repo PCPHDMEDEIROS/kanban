@@ -48,8 +48,15 @@ function openMove(type,id,targetWeek){
   const item=itemForMove(type,id);if(!item)return
   state.move={type,item,impact:null}
   $('#move-title').textContent=type==='LOTE'?`Reprogramar lote ${item.codigo}`:`Reprogramar NS ${item.n_serie}`
-  $('#move-week').value=targetWeek||item.semana_planejada||item.planejado_para||''
+  $('#move-week').value=targetWeek===null?'':(targetWeek||item.semana_planejada||item.planejado_para||'')
   $('#move-reason').value='';$('#move-feedback').textContent='';refreshMoveImpact();$('#move-dialog').showModal()
+}
+function removeFromPlanning(){
+  if(!state.move)return
+  $('#move-week').value='';refreshMoveImpact()
+  const check=validateMovement(state.move.impact,$('#move-reason').value)
+  if(!check.valid){$('#move-feedback').textContent=check.error;return}
+  $('#move-form').requestSubmit()
 }
 async function submitMove(event){
   event.preventDefault();if(!state.move)return
@@ -79,5 +86,4 @@ function scheduleLoad(reason,delay=600){clearTimeout(state.debounceTimer);state.
 function startUpdates(){clearInterval(state.refreshTimer);state.refreshTimer=setInterval(()=>load('interval'),60000);state.channel?.unsubscribe();state.channel=supabase.channel('pcp-board').on('postgres_changes',{event:'*',schema:'hd_kanban',table:'planejamento_kanban'},()=>scheduleLoad('realtime')).on('postgres_changes',{event:'*',schema:'hd_kanban',table:'lotes_producao'},()=>scheduleLoad('realtime')).on('postgres_changes',{event:'*',schema:'hd_kanban',table:'lote_fornos'},()=>scheduleLoad('realtime')).subscribe(status=>{if(status==='CHANNEL_ERROR'||status==='TIMED_OUT')$('#board-status').textContent='Realtime indisponível; atualização automática de 60 segundos permanece ativa.'})}
 async function show(session){state.session=session;$('#login').hidden=!!session;$('#app').hidden=!session;if(session){$('#user-label').textContent=session.user.email;await load('login');startUpdates()}else{state.channel?.unsubscribe();clearInterval(state.refreshTimer)}}
 
-$('#mode').onchange=()=>{state.visible.clear();render()};$('#search').oninput=render;$('#order').onchange=render;$('#history').onchange=render;$('#hide-empty').onchange=render;$('#refresh').onclick=()=>load('manual');$('#detail-close').onclick=()=>$('#detail-dialog').close();$('#all-close').onclick=()=>$('#all-dialog').close();$('#move-close').onclick=$('#move-cancel').onclick=()=>$('#move-dialog').close();$('#move-week').onchange=refreshMoveImpact;$('#move-form').onsubmit=submitMove;$('#logout').onclick=()=>supabase.auth.signOut();document.addEventListener('visibilitychange',()=>{if(!document.hidden)load('visibility')});$('#login-form').onsubmit=async event=>{event.preventDefault();const{error}=await supabase.auth.signInWithPassword({email:$('#email').value,password:$('#password').value});$('#login-error').textContent=error?.message||''};supabase.auth.onAuthStateChange((_event,session)=>setTimeout(()=>show(session),0));const{data:{session}}=await supabase.auth.getSession();await show(session)
-
+$('#mode').onchange=()=>{state.visible.clear();render()};$('#search').oninput=render;$('#order').onchange=render;$('#history').onchange=render;$('#hide-empty').onchange=render;$('#refresh').onclick=()=>load('manual');$('#detail-close').onclick=()=>$('#detail-dialog').close();$('#all-close').onclick=()=>$('#all-dialog').close();$('#move-close').onclick=$('#move-cancel').onclick=()=>$('#move-dialog').close();$('#move-remove').onclick=removeFromPlanning;$('#move-week').onchange=refreshMoveImpact;$('#move-form').onsubmit=submitMove;$('#logout').onclick=()=>supabase.auth.signOut();document.addEventListener('visibilitychange',()=>{if(!document.hidden)load('visibility')});$('#login-form').onsubmit=async event=>{event.preventDefault();const{error}=await supabase.auth.signInWithPassword({email:$('#email').value,password:$('#password').value});$('#login-error').textContent=error?.message||''};supabase.auth.onAuthStateChange((_event,session)=>setTimeout(()=>show(session),0));const{data:{session}}=await supabase.auth.getSession();await show(session)
