@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {abcByModel,existingOccupancy,filterPortfolio,portfolioSummary,productiveDays,shiftProductiveDays,suggestSchedule,validatePeriod,weeklyReference,weeklyTargets} from '../frontend/js/planning-core.js'
+import {abcByModel,existingOccupancy,filterPortfolio,portfolioSummary,productiveDays,shiftProductiveDays,simpleMonthlySchedule,suggestSchedule,validatePeriod,weeklyReference,weeklyTargets} from '../frontend/js/planning-core.js'
 
 const cards=[
  {forno_id:'a',n_serie:'1',modelo:'A',tensao:'220',controlador:'X',data_entrega:'2026-11-20',status_forno:'FABRICAÇÃO',tem_apontamento_produtivo:false,atrasado:true,prioridade:3},
@@ -16,4 +16,6 @@ test('sugestão procura semanas anteriores e preserva compromissos',()=>{const c
 test('modo novos preserva programação aprovada',()=>{const selected={...cards[0],planejado_para:'2026-11-09'};const result=suggestSchedule([selected],{commitments:[selected],mode:'NEW',horizonStart:'2026-11-01',horizonEnd:'2026-11-30'});assert.equal(result.lots.length,0);assert.match(result.unscheduled[0].reason,/preservado/)})
 test('códigos não colidem com lotes existentes',()=>{const result=suggestSchedule(cards.slice(0,2),{horizonStart:'2026-11-01',horizonEnd:'2026-11-30',existingCodes:['2026-S46-A']});assert.equal(new Set(result.lots.map(x=>x.code)).size,result.lots.length);assert.ok(result.lots.every(x=>x.code))})
 test('curva ABC classifica pelo acumulado anterior ao item limítrofe',()=>{const result=abcByModel([{modelo:'A'},{modelo:'A'},{modelo:'A'},{modelo:'A'},{modelo:'B'}]);assert.equal(result[0].class,'A');assert.equal(result[1].class,'B')})
-
+test('programação simples respeita ocupação mensal existente',()=>{const selected=Array.from({length:4},(_,i)=>({...cards[0],forno_id:`n${i}`,n_serie:`N${i}`,data_entrega:'2026-11-20'})),commitments=Array.from({length:3},(_,i)=>({forno_id:`x${i}`,planejado_para:'2026-11-02',status_forno:'FABRICAÇÃO'})),result=simpleMonthlySchedule(selected,{monthlyTarget:5,commitments});assert.equal(result.lots.reduce((n,lot)=>n+lot.cards.length,0),2);assert.equal(result.unscheduled.length,2);assert.match(result.unscheduled[0].reason,/limite mensal/)})
+test('configuração ausente gera programação individual',()=>{const result=simpleMonthlySchedule([{...cards[0],forno_id:'i1',tensao:null,controlador:null},{...cards[0],forno_id:'i2',n_serie:'2',tensao:null,controlador:null}],{horizonStart:'2026-11-01'});assert.equal(result.lots.length,2);assert.ok(result.lots.every(x=>x.individual))})
+test('programados existentes são preservados fora da nova sugestão',()=>{const result=simpleMonthlySchedule([{...cards[0],planejado_para:'2026-11-09'}],{commitments:[]});assert.equal(result.lots.length,0);assert.equal(result.preserved.length,1)})
