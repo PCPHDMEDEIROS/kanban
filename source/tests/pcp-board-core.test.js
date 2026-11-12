@@ -1,0 +1,4 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {cardsInColumn,planningColumns,summarizeLot} from '../frontend/js/pcp-board-core.js'
+test('kanban PCP cria semanas dinâmicas e sem programação',()=>{const cards=[{planejado_para:null},{planejado_para:'2026-11-09'},{planejado_para:'2026-12-07'}],cols=planningColumns(cards,new Date('2026-11-12T12:00:00'));assert.equal(cols[0].key,'UNPLANNED');assert.ok(cols.some(x=>x.key==='2026-12-07'));assert.equal(cardsInColumn(cards,'UNPLANNED').length,1)})
+test('resumo do lote separa execução real',()=>{const x=summarizeLot({fornoIds:['a','b']},[{forno_id:'a',tem_apontamento_produtivo:false},{forno_id:'b',tem_apontamento_produtivo:true,status_forno:'FINALIZADO'}]);assert.equal(x.quantity,2);assert.equal(x.notStarted,1);assert.equal(x.finished,1)})
+
