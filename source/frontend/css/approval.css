@@ -1,0 +1,2 @@
+.lot-card label{display:flex;gap:6px;align-items:start}.approval-panel{margin-top:18px;padding-top:16px;border-top:1px solid #cbd5e1}.approval-panel>label{display:grid;gap:6px;max-width:680px}.approval-panel textarea{padding:9px;border:1px solid #cbd5e1;border-radius:8px}.approval-panel .actions{margin-top:10px}.approval-panel [role=status]{font-size:12px;font-weight:700}
+
