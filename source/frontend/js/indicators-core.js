@@ -8,6 +8,17 @@ const hours=(a,b)=>Math.max(0,(new Date(b)-new Date(a))/3600000)
 const median=values=>{const sorted=[...values].sort((a,b)=>a-b);return sorted.length?(sorted[Math.floor((sorted.length-1)/2)]+sorted[Math.ceil((sorted.length-1)/2)])/2:null}
 const average=values=>values.length?values.reduce((sum,value)=>sum+value,0)/values.length:null
 
+export function dateInPeriod(value,from='',to=''){
+  const key=value&&String(value).slice(0,10)
+  if(!from&&!to)return true
+  if(!key||!/^\d{4}-\d{2}-\d{2}$/.test(key))return false
+  return(!from||key>=from)&&(!to||key<=to)
+}
+
+export function scopeCardsByDate(cards,field,from='',to=''){
+  return unique(cards).filter(card=>dateInPeriod(card[field],from,to))
+}
+
 export function executiveIndicators(cards,{month,goal=100,today=new Date(),exceptions=[]}={}){
   const all=unique(cards),pending=all.filter(card=>card.status_forno!=='FINALIZADO'),finished=all.filter(card=>card.status_forno==='FINALIZADO'&&card.data_finalizacao&&String(card.data_finalizacao).slice(0,7)===month),start=parseLocalDate(`${month}-01`),end=new Date(start.getFullYear(),start.getMonth()+1,0,12),cutoff=today<start?start:today>end?end:today,totalDays=productiveDays(start,end,exceptions),elapsed=today<start?0:productiveDays(start,cutoff,exceptions),remaining=Math.max(0,totalDays-elapsed),daily=elapsed?finished.length/elapsed:0,needed=remaining?Math.max(0,goal-finished.length)/remaining:0,projection=Math.round(daily*totalDays)
   return{portfolio:pending.length,notStarted:pending.filter(card=>!card.tem_apontamento_produtivo).length,inProduction:pending.filter(card=>card.tem_apontamento_produtivo).length,finished:finished.length,goal,achievement:goal?finished.length/goal:0,remaining:Math.max(0,goal-finished.length),productiveElapsed:elapsed,productiveRemaining:remaining,dailyAverage:daily,neededPace:needed,projection,delayed:pending.filter(card=>card.atrasado).length,near:pending.filter(card=>Number(card.dias_para_entrega)>=0&&Number(card.dias_para_entrega)<=7).length,unplanned:pending.filter(card=>!card.planejado_para).length,planned:pending.filter(card=>card.planejado_para).length}
@@ -24,4 +35,3 @@ export function plannedVsActual(cards){const weeks=new Map;for(const card of uni
 export function deliveryRadar(cards){const groups={ATRASADOS:[],D7:[],D15:[],D30:[],PRAZO:[],RISCO_NAO_CALCULADO:[]};for(const card of unique(cards).filter(card=>card.status_forno!=='FINALIZADO')){if(!card.data_entrega){groups.RISCO_NAO_CALCULADO.push(card);continue}const days=Number(card.dias_para_entrega);if(card.atrasado)groups.ATRASADOS.push(card);else if(days<=7)groups.D7.push(card);else if(days<=15)groups.D15.push(card);else if(days<=30)groups.D30.push(card);else groups.PRAZO.push(card)}return groups}
 
 export function cumulativeProduction(cards,month,goal=100){const start=parseLocalDate(`${month}-01`),end=new Date(start.getFullYear(),start.getMonth()+1,0,12),finished=unique(cards).filter(card=>card.data_finalizacao&&String(card.data_finalizacao).slice(0,7)===month).map(card=>String(card.data_finalizacao).slice(0,10));const counts=new Map;for(const day of finished)counts.set(day,(counts.get(day)||0)+1);const totalDays=productiveDays(start,end),daily=totalDays?goal/totalDays:0,result=[];let actual=0,target=0;for(const cursor=new Date(start);cursor<=end;cursor.setDate(cursor.getDate()+1)){const key=dateKey(cursor);actual+=counts.get(key)||0;if(productiveDays(cursor,cursor))target+=daily;result.push({date:key,actual,target:Number(target.toFixed(2))})}return result}
-
