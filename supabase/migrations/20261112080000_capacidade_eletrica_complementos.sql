@@ -121,6 +121,12 @@ drop trigger if exists alerta_eletrica_montagem_geral on hd_kanban.apontamentos;
 create trigger alerta_eletrica_montagem_geral after insert or update of operacao,hora_inicial,source_deleted on hd_kanban.apontamentos
 for each row execute function hd_kanban.gerar_alerta_eletrica_montagem_geral();
 
+-- Funções de trigger não são endpoints RPC.
+revoke execute on function hd_kanban.auditar_preparacao_eletrica() from public,anon,authenticated;
+revoke execute on function hd_kanban.gerar_alerta_eletrica_planejamento() from public,anon,authenticated;
+revoke execute on function hd_kanban.gerar_alerta_eletrica_lote() from public,anon,authenticated;
+revoke execute on function hd_kanban.gerar_alerta_eletrica_montagem_geral() from public,anon,authenticated;
+
 create index if not exists tempo_modelo_operacao_lookup_idx on hd_kanban.tempo_modelo_operacao(modelo,operacao_id,vigencia_inicio desc);
 create index if not exists historico_preparacao_eletrica_forno_idx on hd_kanban.historico_preparacao_eletrica(forno_id,alterado_em desc);
 
