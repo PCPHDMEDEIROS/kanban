@@ -6,13 +6,13 @@
 2. Backup/PITR do projeto confirmado.
 3. Fotografia de reconciliação registrada imediatamente antes da mudança.
 4. Responsáveis do PCP e da Elétrica disponíveis para teste.
-5. Migrações pendentes `20261112070000_reprogramacao_transacional_pcp.sql` e `20261112140000_limite_mensal_programacao.sql` revisadas e autorizadas explicitamente.
+5. Confirmar no histórico remoto as migrações `reprogramacao_transacional_pcp` (`20261112133534`) e `limite_mensal_programacao` (`20261112133757`).
 
 ## Ordem de implantação
 
 1. Suspender aprovações de programação durante a janela.
 2. Registrar totais de fornos, planejamentos, lotes, vínculos e históricos.
-3. Aplicar somente as migrações explicitamente autorizadas, uma por vez, na ordem de dependência.
+3. Confirmar a integridade das migrações já aplicadas; não reaplicá-las.
 4. Executar consultas de integridade e advisors.
 5. Testar leitura com perfil `CONSULTA`.
 6. Testar capacidade e tempos com perfil `ADMIN`.
