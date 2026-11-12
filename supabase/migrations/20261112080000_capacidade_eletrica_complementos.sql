@@ -70,6 +70,57 @@ drop trigger if exists preparacao_eletrica_auditoria on hd_kanban.preparacao_ele
 create trigger preparacao_eletrica_auditoria after insert or update on hd_kanban.preparacao_eletrica
 for each row execute function hd_kanban.auditar_preparacao_eletrica();
 
+create or replace function hd_kanban.gerar_alerta_eletrica_planejamento()
+returns trigger language plpgsql security invoker set search_path=hd_kanban,pg_temp as $$
+declare v_forno_id uuid;
+begin
+  if new.planejado_para is null or (tg_op='UPDATE' and old.planejado_para is not distinct from new.planejado_para) then return new; end if;
+  select id into v_forno_id from hd_kanban.fornos where n_serie=new.n_serie;
+  if v_forno_id is not null then
+    insert into hd_kanban.alertas_pcp(forno_id,tipo,motivo,chave_evento)
+    values(v_forno_id,'FORNO_PROGRAMADO','Forno programado para preparação elétrica.','ELETRICA:PROGRAMADO:'||v_forno_id||':'||new.planejado_para)
+    on conflict(chave_evento) do nothing;
+  end if;
+  return new;
+end $$;
+
+create or replace function hd_kanban.gerar_alerta_eletrica_lote()
+returns trigger language plpgsql security invoker set search_path=hd_kanban,pg_temp as $$
+declare v_status text;
+begin
+  select status into v_status from hd_kanban.lotes_producao where id=new.lote_id;
+  if v_status='PLANEJADO' then
+    insert into hd_kanban.alertas_pcp(forno_id,tipo,motivo,chave_evento)
+    values(new.forno_id,'LOTE_APROVADO','Forno incluído em lote planejado.','ELETRICA:LOTE:'||new.lote_id||':'||new.forno_id)
+    on conflict(chave_evento) do nothing;
+  end if;
+  return new;
+end $$;
+
+create or replace function hd_kanban.gerar_alerta_eletrica_montagem_geral()
+returns trigger language plpgsql security invoker set search_path=hd_kanban,pg_temp as $$
+declare v_forno_id uuid;
+begin
+  if new.source_deleted or new.hora_inicial is null or regexp_replace(upper(coalesce(new.operacao,'')),'[^A-Z0-9]','','g') <> 'MONTGERAL' then return new; end if;
+  select id into v_forno_id from hd_kanban.fornos where n_serie=new.n_serie;
+  if v_forno_id is not null then
+    insert into hd_kanban.alertas_pcp(forno_id,tipo,motivo,chave_evento)
+    values(v_forno_id,'CHEGADA_MONTAGEM_GERAL','Forno chegou efetivamente à Montagem Geral.','ELETRICA:MONT_GERAL:'||v_forno_id)
+    on conflict(chave_evento) do nothing;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists alerta_eletrica_planejamento on hd_kanban.planejamento_kanban;
+create trigger alerta_eletrica_planejamento after insert or update of planejado_para on hd_kanban.planejamento_kanban
+for each row execute function hd_kanban.gerar_alerta_eletrica_planejamento();
+drop trigger if exists alerta_eletrica_lote on hd_kanban.lote_fornos;
+create trigger alerta_eletrica_lote after insert on hd_kanban.lote_fornos
+for each row execute function hd_kanban.gerar_alerta_eletrica_lote();
+drop trigger if exists alerta_eletrica_montagem_geral on hd_kanban.apontamentos;
+create trigger alerta_eletrica_montagem_geral after insert or update of operacao,hora_inicial,source_deleted on hd_kanban.apontamentos
+for each row execute function hd_kanban.gerar_alerta_eletrica_montagem_geral();
+
 create index if not exists tempo_modelo_operacao_lookup_idx on hd_kanban.tempo_modelo_operacao(modelo,operacao_id,vigencia_inicio desc);
 create index if not exists historico_preparacao_eletrica_forno_idx on hd_kanban.historico_preparacao_eletrica(forno_id,alterado_em desc);
 
