@@ -34,6 +34,33 @@ export function existingOccupancy(commitments,excludedIds=new Set){const result=
 
 function uniqueLotCode(week,cards,used){const token=String(cards[0]?.forno_id||cards[0]?.n_serie||'LOTE').replace(/[^A-Z0-9]/gi,'').slice(0,8).toUpperCase()||'LOTE',base=`${week.slice(0,4)}-S${String(weekNumber(parseLocalDate(week))).padStart(2,'0')}-${token}`;let code=base,index=2;while(used.has(code)){code=`${base}-${index++}`}used.add(code);return code}
 
+const compatibleKey=card=>{const model=String(card.modelo||'').trim().toUpperCase(),voltage=String(card.tensao||'').trim().toUpperCase(),controller=String(card.controlador||'').trim().toUpperCase();return model&&voltage&&controller?`${model} | ${voltage} | ${controller}`:null}
+
+export function simpleMonthlySchedule(cards,options={}){
+  const{monthlyTarget=100,maxLot=6,commitments=[],existingCodes=[],exceptions=[],today=new Date()}=options,usedCodes=new Set(existingCodes),lots=[],unscheduled=[],preserved=[],monthLoads=new Map,weekLoads=existingOccupancy(commitments)
+  for(const card of commitments){if(!pending(card)||!card.planejado_para)continue;const month=String(card.planejado_para).slice(0,7);monthLoads.set(month,(monthLoads.get(month)||0)+1)}
+  const sorted=[...cards].sort((a,b)=>Number(Boolean(b.atrasado))-Number(Boolean(a.atrasado))||String(a.data_entrega||'9999').localeCompare(String(b.data_entrega||'9999'))||Number(b.prioridade||0)-Number(a.prioridade||0)||String(a.n_serie).localeCompare(String(b.n_serie),undefined,{numeric:true}))
+  for(const card of sorted){
+    if(card.planejado_para){preserved.push(card);continue}
+    const delivery=parseLocalDate(card.data_entrega);if(!delivery){unscheduled.push({card,reason:'Data de entrega ausente ou inválida.'});continue}
+    const month=dateKey(delivery).slice(0,7),existing=monthLoads.get(month)||0
+    if(existing>=monthlyTarget){unscheduled.push({card,reason:`Sem encaixe no limite mensal de ${monthlyTarget} fornos em ${month}.`});continue}
+    const targets=weeklyTargets(month,monthlyTarget,exceptions),first=parseLocalDate(`${month}-01`),latest=parseLocalDate(mondayKey(dateKey(delivery))),eligible=targets.filter(row=>parseLocalDate(row.week)<=latest&&parseLocalDate(row.week)>=parseLocalDate(mondayKey(dateKey(first))))
+    let chosen=null
+    for(const target of [...eligible].reverse()){const occupied=weekLoads.get(target.week)||0;if(occupied<Math.ceil(target.target)){chosen=target.week;break}}
+    if(!chosen&&eligible.length)chosen=eligible[0].week
+    if(!chosen){unscheduled.push({card,reason:'Sem semana produtiva elegível antes do prazo no mês.'});continue}
+    weekLoads.set(chosen,(weekLoads.get(chosen)||0)+1);monthLoads.set(month,existing+1)
+    const compatibility=compatibleKey(card),groupKey=compatibility||`INDIVIDUAL:${card.forno_id}`,lotKey=`${chosen}|${groupKey}`;let lot=lots.find(item=>item.key===lotKey&&item.cards.length<maxLot)
+    if(!lot){lot={key:lotKey,code:null,week:chosen,configuration:compatibility||`${card.modelo||'Modelo não informado'} · programação individual`,cards:[],capacityValidated:false,deadline:dateKey(delivery),individual:!compatibility};lots.push(lot)}
+    lot.cards.push({...card,proposedWeek:chosen})
+  }
+  for(const lot of lots)lot.code=uniqueLotCode(lot.week,lot.cards,usedCodes)
+  const weeklyLoads=[...new Set([...weekLoads.keys(),...lots.map(x=>x.week)])].sort().map(week=>{const existing=[...commitments].filter(card=>card.planejado_para&&mondayKey(card.planejado_para)===week).length,suggested=lots.reduce((sum,lot)=>sum+lot.cards.filter(card=>card.proposedWeek===week).length,0);return{week,existing,suggested,projected:existing+suggested,reference:Math.ceil(weeklyReference(week,monthlyTarget,exceptions))}})
+  const monthlyLoads=[...monthLoads].sort().map(([month,projected])=>{const existing=commitments.filter(card=>pending(card)&&String(card.planejado_para||'').slice(0,7)===month).length;return{month,target:monthlyTarget,existing,suggested:projected-existing,projected,available:Math.max(0,monthlyTarget-projected),overloaded:projected>monthlyTarget}})
+  return{lots,unscheduled,preserved,weeklyLoads,monthlyLoads,notice:'Programação preliminar por quantidade e prazo. Segunda a sexta-feira foram usadas como calendário provisório; não há garantia de capacidade técnica por operação.'}
+}
+
 export function suggestSchedule(cards,options={}){
   const{maxLot=6,monthlyTarget=100,exceptions=[],commitments=[],mode='NEW',horizonStart,horizonEnd,dispatchLeadDays=0,existingCodes=[],today=new Date()}=options
   const start=parseLocalDate(horizonStart)||parseLocalDate(mondayKey(dateKey(today))),end=parseLocalDate(horizonEnd)||addDays(start,84),selectedIds=new Set(cards.map(card=>card.forno_id)),excluded=mode==='REPROGRAM'?selectedIds:new Set,loads=existingOccupancy(commitments,excluded),projected=new Map(loads),usedCodes=new Set(existingCodes),lots=[],unscheduled=[],preserved=[]
@@ -60,4 +87,3 @@ export function suggestSchedule(cards,options={}){
 function weekNumber(date){const value=new Date(Date.UTC(date.getFullYear(),date.getMonth(),date.getDate()));value.setUTCDate(value.getUTCDate()+4-(value.getUTCDay()||7));const year=new Date(Date.UTC(value.getUTCFullYear(),0,1));return Math.ceil((((value-year)/86400000)+1)/7)}
 
 export function abcByModel(cards){const totals=new Map;for(const card of cards)totals.set(card.modelo||'Não informado',(totals.get(card.modelo||'Não informado')||0)+1);const rows=[...totals].map(([modelo,quantidade])=>({modelo,quantidade})).sort((a,b)=>b.quantidade-a.quantidade||a.modelo.localeCompare(b.modelo)),total=cards.length;let cumulative=0;return rows.map(row=>{const before=cumulative/Math.max(total,1);cumulative+=row.quantidade;return{...row,share:row.quantidade/Math.max(total,1),cumulative:cumulative/Math.max(total,1),class:before<.8?'A':before<.95?'B':'C'}})}
-
