@@ -35,6 +35,16 @@ export function planningColumns(cards,reference=new Date(),span=4){
 
 export function cardsInColumn(cards,key){return cards.filter(card=>key==='UNPLANNED'?!card.planejado_para:mondayKey(card.planejado_para)===key)}
 
+export function uniqueFurnaces(cards){
+  const byId=new Map
+  for(const card of cards){
+    const key=card.forno_id||`serie:${card.n_serie}`
+    const current=byId.get(key)
+    if(!current||(!current.planejado_para&&card.planejado_para))byId.set(key,card)
+  }
+  return[...byId.values()]
+}
+
 export function joinLots(lots,links,cards){
   const cardById=new Map(cards.map(card=>[card.forno_id,card]))
   const linksByLot=new Map
