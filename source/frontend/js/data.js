@@ -13,3 +13,11 @@ export async function fetchAllCards(supabase,{pageSize=500}={}){
   }
   return{rows,total:total??rows.length,complete:rows.length===(total??rows.length)}
 }
+
+export async function fetchCardsBySeries(supabase,series){
+  const keys=[...new Set(series.map(String).filter(Boolean))]
+  if(!keys.length)return[]
+  const{data,error}=await supabase.schema('hd_kanban').from('kanban_fornos').select(KANBAN_FIELDS).in('n_serie',keys)
+  if(error)throw error
+  return data??[]
+}

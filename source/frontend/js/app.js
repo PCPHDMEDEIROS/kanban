@@ -1,6 +1,6 @@
 import {supabase} from './supabase.js'
 import {classifyCard,diagnose,finalizedDate,metrics,operationKey,uniqueCards} from './kanban-core.js'
-import {fetchAllCards} from './data.js'
+import {fetchAllCards,fetchCardsBySeries} from './data.js'
 import {COLOR_LEGEND} from './visual-config.js'
 import {deliveryInPeriod,durationLabel,operationTimeline} from './time-core.js'
 import {applyInstitutionalBrand} from './brand.js'
@@ -11,6 +11,7 @@ const state={cards:[],operations:[],issues:[],limits:{},view:localStorage.getIte
 const $=s=>document.querySelector(s)
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
 let realtimeChannel=null,reloadTimer=null,pollTimer=null,retryTimer=null,loadPromise=null,loadAgain=false
+const pendingSeries=new Set()
 const PAGE_SIZE=20,MIN_REFRESH=5000
 const initialLimit=key=>['A_PRODUZIR','FINALIZADO'].includes(key)?10:15
 
@@ -42,7 +43,8 @@ async function load({force=false}={}){
   return loadPromise
 }
 
-function scheduleLoad(){clearTimeout(reloadTimer);reloadTimer=setTimeout(()=>load({force:true}),500)}
+async function refreshSeries(){const keys=[...pendingSeries];pendingSeries.clear();if(!keys.length)return load({force:true});try{const changed=await fetchCardsBySeries(supabase,keys),affected=new Set(keys),bySeries=new Map(state.cards.filter(card=>!affected.has(String(card.n_serie))).map(card=>[String(card.n_serie),card]));changed.forEach(card=>bySeries.set(String(card.n_serie),card));state.cards=uniqueCards([...bySeries.values()]);state.lastSuccess=Date.now();render();setStatus('connected',`Atualizado às ${new Date().toLocaleTimeString('pt-BR')}`)}catch(error){console.error('Falha na atualização incremental',error);await load({force:true})}}
+function scheduleLoad(event){[event?.new?.n_serie,event?.old?.n_serie].filter(Boolean).forEach(value=>pendingSeries.add(String(value)));clearTimeout(reloadTimer);reloadTimer=setTimeout(refreshSeries,500)}
 function searchMatches(c){const q=($('#search').value||'').trim().toLowerCase();return!q||[c.n_serie,c.cliente,c.modelo,c.operador_atual].some(x=>String(x??'').toLowerCase().includes(q))}
 function serialSearchMatches(c){const q=($('#search').value||'').trim().toLowerCase();return q&&String(c.n_serie??'').toLowerCase().includes(q)}
 function finalizedInPeriod(c){
@@ -107,14 +109,14 @@ async function detail(serie,append=false){
   $('#load-history').hidden=(history??[]).length<50;$('#load-history').onclick=()=>detail(detailSerie,true);$('#details').showModal()
 }
 
-function startPolling(){clearInterval(pollTimer);pollTimer=setInterval(()=>{if(!document.hidden&&navigator.onLine)load()},60000)}
+function startPolling(){clearInterval(pollTimer);pollTimer=setInterval(()=>{if(!document.hidden&&navigator.onLine)load({force:true})},300000)}
 function startRealtime(){
   if(realtimeChannel)return
   realtimeChannel=supabase.channel('hd-kanban').on('postgres_changes',{event:'*',schema:'hd_kanban',table:'fornos'},scheduleLoad).on('postgres_changes',{event:'*',schema:'hd_kanban',table:'apontamentos'},scheduleLoad).on('postgres_changes',{event:'*',schema:'hd_kanban',table:'planejamento_kanban'},scheduleLoad).subscribe(status=>{if(status==='SUBSCRIBED')setStatus('connected',state.lastSuccess?`Atualizado às ${new Date(state.lastSuccess).toLocaleTimeString('pt-BR')}`:'Conectado');else if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status))setStatus('reconnecting','Reconectando…')})
   startPolling()
 }
 async function stopRealtime(){clearInterval(pollTimer);if(!realtimeChannel)return;const channel=realtimeChannel;realtimeChannel=null;await supabase.removeChannel(channel)}
-async function showSession(session){$('#login').hidden=!!session;$('#app').hidden=!session;if(session){$('#user-label').textContent=session.user.email;await load({force:true});startRealtime()}else await stopRealtime()}
+async function showSession(session){$('#login').hidden=!!session;$('#app').hidden=!session;if(session){$('#user-label').textContent=session.user.email;$('#integration-health-button').hidden=session.user.app_metadata?.hd_role!=='ADMIN';await load({force:true});startRealtime()}else await stopRealtime()}
 
 $('#login-form').onsubmit=async e=>{e.preventDefault();try{$('#login-error').textContent='';await login($('#email').value,$('#password').value)}catch(x){$('#login-error').textContent=x.message}}
 $('#magic-link').onclick=async()=>{try{await magicLink($('#email').value);$('#login-error').textContent='Link enviado. Verifique seu e-mail.'}catch(x){$('#login-error').textContent=x.message}}
@@ -126,6 +128,8 @@ $('#metric-mode').value=state.metricMode;$('#metric-mode').onchange=e=>{state.me
 $('#view-mode').value=state.view;$('#view-mode').onchange=e=>{state.view=e.target.value;localStorage.setItem('hd-kanban-view',state.view);render()}
 function openIssues(){const affected=new Set(state.issues.map(x=>String(x.card.n_serie||'')).filter(Boolean)),categories=[...new Set(state.issues.map(x=>x.type))].sort();$('#issues-content').innerHTML=`<h2>Pendências de Dados</h2><p>Diagnóstico administrativo somente leitura · atualizado em ${new Date().toLocaleString('pt-BR')}</p><div class="metrics"><div class="metric"><span>Ocorrências</span><strong>${state.issues.length}</strong></div><div class="metric"><span>Fornos afetados</span><strong>${affected.size}</strong></div><div class="metric"><span>Categorias</span><strong>${categories.length}</strong></div></div><div class="filters"><input id="issue-search" placeholder="Pesquisar número de série"><select id="issue-category"><option value="">Todas as categorias</option>${categories.map(value=>`<option>${esc(value)}</option>`).join('')}</select><button id="issue-export" type="button">Exportar relatório</button></div><div class="table-wrap"><table><thead><tr><th>Série</th><th>Cliente</th><th>Modelo</th><th>Status atual</th><th>Tipo</th><th>Evidência</th><th>Fonte consultada</th><th>Última sincronização</th><th>Ação recomendada</th><th>Investigação</th></tr></thead><tbody id="issue-body"></tbody></table></div>`;const draw=()=>{const query=$('#issue-search').value.trim().toLowerCase(),category=$('#issue-category').value;$('#issue-body').innerHTML=state.issues.filter(x=>(!query||String(x.card.n_serie||'').toLowerCase().includes(query))&&(!category||x.type===category)).map(x=>`<tr><td>${esc(x.card.n_serie||'Sem série')}</td><td>${esc(x.card.cliente||'—')}</td><td>${esc(x.card.modelo||'—')}</td><td>${esc(x.card.status_forno||'—')}</td><td>${esc(x.type)}</td><td>${esc(x.evidence||'Regra de classificação')}</td><td>Supabase · sincronização AppSheet</td><td>${x.card.updated_at?new Date(x.card.updated_at).toLocaleString('pt-BR'):'—'}</td><td>${esc(x.action||'Consultar cadastro')}</td><td><span class="badge">Pendente de validação na origem</span></td></tr>`).join('')||'<tr><td colspan="10">Nenhuma pendência neste filtro.</td></tr>'};$('#issue-search').oninput=draw;$('#issue-category').onchange=draw;$('#issue-export').onclick=()=>{const rows=[['Série','Cliente','Modelo','Status','Tipo','Evidência','Ação'],...state.issues.map(x=>[x.card.n_serie,x.card.cliente,x.card.modelo,x.card.status_forno,x.type,x.evidence,x.action])],content=rows.map(row=>row.map(value=>`"${String(value??'').replaceAll('"','""')}"`).join(';')).join('\r\n'),link=document.createElement('a');link.href=URL.createObjectURL(new Blob(['\ufeff'+content],{type:'text/csv'}));link.download='pendencias-kanban.csv';link.click();URL.revokeObjectURL(link.href)};draw();$('#issues').showModal()}
 $('#issues-button').onclick=openIssues;$('#close-issues').onclick=()=>$('#issues').close()
+async function openIntegrationHealth(){const dialog=$('#integration-health'),content=$('#integration-health-content');dialog.showModal();content.innerHTML='<h2>Saúde da Integração</h2><p>Carregando diagnóstico…</p>';const{data,error}=await supabase.schema('hd_kanban').rpc('saude_integracao');if(error){content.innerHTML=`<h2>Saúde da Integração</h2><p class="filter-error">${esc(error.message)}</p>`;return}const rows=data?.ultimos_lotes??[];content.innerHTML=`<h2>Saúde da Integração</h2><p>Consulta administrativa sob demanda, sem polling adicional.</p><div class="metrics">${metric('Pendentes',data?.pendentes??0)}${metric('Processando',data?.processando??0)}${metric('Falhas em 24h',data?.falhas_24h??0)}${metric('Lidos em 24h',data?.lidos_24h??0)}${metric('Gravados em 24h',data?.gravados_24h??0)}${metric('Ignorados em 24h',data?.ignorados_24h??0)}</div><p><b>Último sucesso:</b> ${data?.ultima_sincronizacao?new Date(data.ultima_sincronizacao).toLocaleString('pt-BR'):'—'}<br><b>Última falha:</b> ${data?.ultima_falha?new Date(data.ultima_falha).toLocaleString('pt-BR'):'—'}</p><div class="table-wrap"><table><thead><tr><th>Início</th><th>Origem</th><th>Status</th><th>Lidos</th><th>Inseridos</th><th>Atualizados</th><th>Ignorados</th><th>Erros</th></tr></thead><tbody>${rows.map(row=>`<tr><td>${row.inicio?new Date(row.inicio).toLocaleString('pt-BR'):'—'}</td><td>${esc(row.origem||'—')}</td><td>${esc(row.status||'—')}</td><td>${row.registros_lidos||0}</td><td>${row.registros_inseridos||0}</td><td>${row.registros_atualizados||0}</td><td>${row.registros_ignorados||0}</td><td>${row.erros||0}</td></tr>`).join('')||'<tr><td colspan="8">Sem execuções registradas.</td></tr>'}</tbody></table></div>`}
+$('#integration-health-button').onclick=openIntegrationHealth;$('#close-integration-health').onclick=()=>$('#integration-health').close()
 const legend=$('#color-legend')
 $('#legend-content').innerHTML=`<div class="legend-sections">${COLOR_LEGEND.map(section=>`<section class="legend-section"><h3>${esc(section.title)}</h3><ul class="legend-list">${section.items.map(item=>`<li class="legend-item"><span class="legend-swatch ${esc(item.className)}" aria-hidden="true"></span><span><strong>${esc(item.label)}:</strong> ${esc(item.description)}</span></li>`).join('')}</ul></section>`).join('')}</div>`
 $('#legend-button').onclick=()=>legend.showModal()
