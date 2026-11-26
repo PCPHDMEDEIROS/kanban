@@ -1,6 +1,9 @@
 import {supabase} from './supabase.js'
 import {fetchAllCards} from './data.js'
 import {availableCapacity,ELECTRICAL_STATUSES,electricalCandidatesWithState} from './resources-core.js'
+import {applyInstitutionalBrand} from './brand.js'
+
+applyInstitutionalBrand()
 
 const $=s=>document.querySelector(s),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),fmt=v=>v?new Date(`${String(v).slice(0,10)}T12:00:00`).toLocaleDateString('pt-BR'):'—'
 const state={session:null,cards:[],operations:[],capacity:[],standards:[],preparations:[],alerts:[],history:[]}
@@ -29,4 +32,3 @@ $('#standard-form').onsubmit=async event=>{event.preventDefault();if(!canCapacit
 async function saveElectrical(fornoId){const status=document.querySelector(`[data-status="${fornoId}"]`).value,observacao=document.querySelector(`[data-note="${fornoId}"]`).value||null,row={forno_id:fornoId,status,observacao,responsavel:state.session.user.id,updated_by:state.session.user.id,concluido_em:status==='PREPARACAO_CONCLUIDA'?new Date().toISOString():null};const{error}=await supabase.schema('hd_kanban').from('preparacao_eletrica').upsert(row,{onConflict:'forno_id'});if(error)alert(error.message);else await load()}
 $('#new-capacity').onclick=()=>openCapacity();$('#new-standard').onclick=()=>{$('#standard-form').reset();$('#standard-start').value=new Date().toISOString().slice(0,10);$('#standard-dialog').showModal()};$('#electrical-search').oninput=render;document.querySelectorAll('[data-close]').forEach(x=>x.onclick=()=>document.getElementById(x.dataset.close).close())
 $('#logout').onclick=()=>supabase.auth.signOut();$('#login-form').onsubmit=async e=>{e.preventDefault();const{error}=await supabase.auth.signInWithPassword({email:$('#email').value,password:$('#password').value});$('#login-error').textContent=error?.message||''};async function show(session){state.session=session;$('#login').hidden=!!session;$('#app').hidden=!session;if(session){$('#user-label').textContent=session.user.email;await load()}}supabase.auth.onAuthStateChange((_e,s)=>setTimeout(()=>show(s),0));const{data:{session}}=await supabase.auth.getSession();await show(session)
-

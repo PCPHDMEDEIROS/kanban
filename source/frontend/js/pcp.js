@@ -1,6 +1,9 @@
 import {supabase} from './supabase.js'
 import {activeCards,deliveryRisk,demandByModel,electricalCandidates,pcpMetrics,simulateWeek,suggestLots,unplanned,weeks,weekFor} from './pcp-core.js'
 import {fetchAllCards} from './data.js'
+import {applyInstitutionalBrand} from './brand.js'
+
+applyInstitutionalBrand()
 
 const $=s=>document.querySelector(s),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
 let cards=[],session=null,channel=null,loadPromise=null,reloadTimer=null,pollTimer=null,lastSuccess=0,dirty=false
@@ -46,4 +49,3 @@ $('#run-simulation').onclick=()=>{const serie=$('#simulation-serie').value,week=
 $('#discard-simulation').onclick=()=>{$('#simulation-result').innerHTML='<p>Cenário descartado. Planejamento oficial preservado.</p>'}
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&navigator.onLine)load()});window.addEventListener('online',()=>load(true));window.addEventListener('offline',()=>status('Dados desatualizados · sem conexão',true))
 supabase.auth.onAuthStateChange((_event,current)=>setTimeout(()=>show(current),0));const {data:{session:current}}=await supabase.auth.getSession();await show(current)
-

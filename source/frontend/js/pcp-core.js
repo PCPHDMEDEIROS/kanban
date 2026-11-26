@@ -37,4 +37,3 @@ export function deliveryRisk(card){
 }
 export function electricalCandidates(cards){return activeCards(cards).filter(c=>{const op=String(c.operacao_atual||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();return op.includes('MONT')&&op.includes('GERAL')||Boolean(c.planejado_para)}).sort((a,b)=>String(a.planejado_para||a.data_entrega||'9999').localeCompare(String(b.planejado_para||b.data_entrega||'9999')))}
 export function simulateWeek(cards,changes){const map=new Map(changes.map(x=>[String(x.n_serie),x.planejado_para]));return cards.map(c=>map.has(String(c.n_serie))?{...c,planejado_para:map.get(String(c.n_serie)),simulado:true}:c)}
-

@@ -2,6 +2,9 @@ import {supabase} from './supabase.js'
 import {fetchAllCards} from './data.js'
 import {cardsInColumn,dateKey,joinLots,paginate,planningColumns,sortBoardItems,unassignedPlanned} from './pcp-board-core.js'
 import {movementImpact,movementVersions,validateMovement} from './movement-core.js'
+import {applyInstitutionalBrand} from './brand.js'
+
+applyInstitutionalBrand()
 
 const $=selector=>document.querySelector(selector)
 const $$=selector=>[...document.querySelectorAll(selector)]

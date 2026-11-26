@@ -28,4 +28,3 @@ test('diagnóstico distingue dados insuficientes de erro produtivo',()=>{
   assert.equal(issues[0].type,'DADOS_INSUFICIENTES')
   assert.match(issues[0].action,/sincronização/i)
 })
-

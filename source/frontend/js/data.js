@@ -13,4 +13,3 @@ export async function fetchAllCards(supabase,{pageSize=500}={}){
   }
   return{rows,total:total??rows.length,complete:rows.length===(total??rows.length)}
 }
-

@@ -18,4 +18,3 @@ export const COLOR_LEGEND = [
     ]
   }
 ]
-

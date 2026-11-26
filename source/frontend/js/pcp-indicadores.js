@@ -3,6 +3,9 @@ import {fetchAllCards} from './data.js'
 import {abcByModel} from './planning-core.js'
 import {cumulativeProduction,dateInPeriod,deliveryRadar,demandByModel,executiveIndicators,operationQueues,operationTimes,plannedVsActual,scopeCardsByDate} from './indicators-core.js'
 import {mondayKey} from './pcp-board-core.js'
+import {applyInstitutionalBrand} from './brand.js'
+
+applyInstitutionalBrand()
 
 const $=selector=>document.querySelector(selector)
 const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]))
