@@ -19,4 +19,3 @@ export function operationTimeline(row){
 export function durationLabel(minutes){if(minutes==null||!Number.isFinite(minutes))return null;const value=Math.round(minutes),hours=Math.floor(value/60),rest=value%60;return hours?`${hours}h ${String(rest).padStart(2,'0')}min`:`${rest}min`}
 
 export function deliveryInPeriod(card,from,to){const value=String(card.data_entrega||'').slice(0,10);if(!from&&!to)return true;if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;return(!from||value>=from)&&(!to||value<=to)}
-

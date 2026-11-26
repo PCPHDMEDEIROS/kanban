@@ -20,4 +20,3 @@ export function validateMovement(impact,reason){
   if(!String(reason||'').trim())return{valid:false,error:'Informe a justificativa da reprogramação.'}
   return{valid:true,error:null}
 }
-

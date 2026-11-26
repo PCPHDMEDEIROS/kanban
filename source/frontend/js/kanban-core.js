@@ -70,4 +70,3 @@ export function metrics(cards){
     caixasCompradas:cards.filter(x=>['COMPRADA','COMPRADO'].includes(x.status_caixa)).length
   }
 }
-

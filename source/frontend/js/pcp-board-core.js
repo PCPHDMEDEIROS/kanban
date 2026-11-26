@@ -62,4 +62,3 @@ export function sortBoardItems(items,order='DELIVERY'){
   if(order==='MODEL')return copy.sort((a,b)=>String(a.modelo||'').localeCompare(String(b.modelo||''),'pt-BR')||serial(a).localeCompare(serial(b),'pt-BR',{numeric:true}))
   return copy.sort((a,b)=>String(a.data_entrega||'9999').localeCompare(String(b.data_entrega||'9999')))
 }
-

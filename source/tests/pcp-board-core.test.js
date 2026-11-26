@@ -14,4 +14,3 @@ test('lotes usam somente vínculos ativos e não duplicam participantes',()=>{co
 test('lotes cancelados somem e fornos programados sem lote permanecem',()=>{const cards=[{forno_id:'a',planejado_para:'2026-11-09'},{forno_id:'b',planejado_para:'2026-11-09'}],links=[{lote_id:'x',forno_id:'a',ativo:true}];assert.equal(joinLots([{id:'x',status:'CANCELADO'}],links,cards).length,0);assert.deepEqual(unassignedPlanned(cards,links).map(x=>x.forno_id),['b'])})
 
 test('paginação não altera total e permite ordenação',()=>{const items=Array.from({length:55},(_,i)=>({n_serie:String(55-i),prioridade:i%3}));const page=paginate(items,30);assert.equal(page.visible.length,30);assert.equal(page.total,55);assert.equal(page.hasMore,true);assert.equal(sortBoardItems(items,'SERIAL')[0].n_serie,'1')})
-

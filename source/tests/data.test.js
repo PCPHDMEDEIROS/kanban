@@ -8,4 +8,3 @@ test('carrega todas as páginas e valida a contagem total',async()=>{
   const result=await fetchAllCards(supabase,{pageSize:500})
   assert.equal(result.rows.length,1201);assert.equal(result.total,1201);assert.equal(result.complete,true)
 })
-

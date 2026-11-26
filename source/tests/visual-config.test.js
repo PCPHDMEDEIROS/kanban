@@ -8,4 +8,3 @@ test('legenda cobre todas as sinalizações visuais do Kanban',()=>{
     'late','critical','open','neutral','blocked','box-bought','box-buy','box-stock'
   ])
 })
-
