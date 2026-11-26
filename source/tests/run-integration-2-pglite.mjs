@@ -23,10 +23,11 @@ await db.exec(bootstrap)
 await db.exec(await readFile(new URL('../supabase/migrations/20261126170000_integracao_2_0.sql',import.meta.url),'utf8'))
 await db.exec(await readFile(new URL('../supabase/migrations/20261126180000_corrige_tmp_integracao.sql',import.meta.url),'utf8'))
 await db.exec(await readFile(new URL('../supabase/migrations/20261126190000_conclusao_integracao_2_0.sql',import.meta.url),'utf8'))
+await db.exec(await readFile(new URL('../supabase/migrations/20261126193000_comparacao_ids_reconciliacao.sql',import.meta.url),'utf8'))
 await db.exec(await readFile(new URL('./homologacao_integracao_2.sql',import.meta.url),'utf8'))
-const result=await db.query(`select to_regprocedure('hd_kanban.sincronizar_integracao_lote(text,text,jsonb,text)') is not null rpc_ok,to_regprocedure('hd_kanban.saude_integracao()') is not null health_ok,to_regprocedure('hd_kanban.diagnostico_integracao_detalhado()') is not null diagnostic_ok,to_regprocedure('hd_kanban.registrar_auditoria_integracao(text,text,jsonb,timestamptz)') is not null audit_ok,has_table_privilege('service_role','hd_kanban.alertas_pcp','INSERT') alerta_grant,to_regclass('hd_kanban.auditoria_horarios') is not null time_audit_ok`)
+const result=await db.query(`select to_regprocedure('hd_kanban.sincronizar_integracao_lote(text,text,jsonb,text)') is not null rpc_ok,to_regprocedure('hd_kanban.saude_integracao()') is not null health_ok,to_regprocedure('hd_kanban.diagnostico_integracao_detalhado()') is not null diagnostic_ok,to_regprocedure('hd_kanban.registrar_auditoria_integracao(text,text,jsonb,timestamptz)') is not null audit_ok,to_regprocedure('hd_kanban.comparar_ids_integracao(text,jsonb)') is not null compare_ok,has_table_privilege('service_role','hd_kanban.alertas_pcp','INSERT') alerta_grant,to_regclass('hd_kanban.auditoria_horarios') is not null time_audit_ok`)
 const row=result.rows[0]
-if(!row.rpc_ok||!row.health_ok||!row.diagnostic_ok||!row.audit_ok||!row.alerta_grant||!row.time_audit_ok)throw new Error(`Contrato incompleto: ${JSON.stringify(row)}`)
+if(!row.rpc_ok||!row.health_ok||!row.diagnostic_ok||!row.audit_ok||!row.compare_ok||!row.alerta_grant||!row.time_audit_ok)throw new Error(`Contrato incompleto: ${JSON.stringify(row)}`)
 console.log(JSON.stringify({ok:true,...row}))
 await db.close()
 
