@@ -93,7 +93,7 @@ begin
   if v_resultado is not null then return v_resultado||jsonb_build_object('repetido',true); end if;
 
   create temp table if not exists tmp_integracao(item jsonb,chave text,row_hash text) on commit drop;
-  delete from tmp_integracao;
+  delete from tmp_integracao where true;
   insert into tmp_integracao(item,chave,row_hash)
   select value,
     trim(case when v_entidade='FORNO' then value->>'n_serie' else value->>'id_origem' end),
