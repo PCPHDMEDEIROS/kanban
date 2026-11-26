@@ -2,6 +2,7 @@ import {supabase} from './supabase.js'
 import {classifyCard,diagnose,finalizedDate,metrics,operationKey,uniqueCards} from './kanban-core.js'
 import {fetchAllCards} from './data.js'
 import {COLOR_LEGEND} from './visual-config.js'
+import {deliveryInPeriod,durationLabel,operationTimeline} from './time-core.js'
 
 const state={cards:[],operations:[],issues:[],limits:{},view:localStorage.getItem('hd-kanban-view')||'compact',metricMode:localStorage.getItem('hd-kanban-metrics')||'filtered',lastSuccess:0,retry:0}
 const $=s=>document.querySelector(s)
@@ -54,7 +55,8 @@ function finalizedInPeriod(c){
   }
   const since=new Date();since.setHours(0,0,0,0);since.setDate(since.getDate()-Number(period||60));return date>=since
 }
-function visible(c){return searchMatches(c)&&(!$('#status-caixa').value||c.status_caixa===$('#status-caixa').value)&&(!$('#only-late').checked||c.atrasado)&&(!$('#only-open').checked||c.apontamento_aberto)&&(!$('#only-blocked').checked||c.bloqueado)&&(c.status_forno!=='FINALIZADO'||finalizedInPeriod(c))}
+function deliveryPeriodValid(){const from=$('#delivery-from').value,to=$('#delivery-to').value,valid=!from||!to||from<=to;$('#delivery-period-error').textContent=valid?'':'A data inicial de entrega não pode ser posterior à data final.';return valid}
+function visible(c){return deliveryPeriodValid()&&searchMatches(c)&&deliveryInPeriod(c,$('#delivery-from').value,$('#delivery-to').value)&&(!$('#status-caixa').value||c.status_caixa===$('#status-caixa').value)&&(!$('#only-late').checked||c.atrasado)&&(!$('#only-open').checked||c.apontamento_aberto)&&(!$('#only-blocked').checked||c.bloqueado)&&(c.status_forno!=='FINALIZADO'||finalizedInPeriod(c))}
 function metric(label,value){return `<div class="metric"><span>${label}</span><strong>${value}</strong></div>`}
 function formatDate(value){if(!value)return'—';const d=new Date(`${String(value).slice(0,10)}T12:00:00`);return Number.isNaN(d.getTime())?esc(value):d.toLocaleDateString('pt-BR')}
 function sortCards(list,column){return [...list].sort((a,b)=>column==='FINALIZADO'?(finalizedDate(b)?.getTime()||0)-(finalizedDate(a)?.getTime()||0):(String(a.data_entrega||'9999').localeCompare(String(b.data_entrega||'9999'))||Number(b.atrasado)-Number(a.atrasado)||Number(b.prioridade||0)-Number(a.prioridade||0)))}
@@ -96,7 +98,7 @@ async function detail(serie,append=false){
   const c=state.cards.find(x=>String(x.n_serie)===String(serie));if(!c)return
   const {data:history,error}=await supabase.schema('hd_kanban').from('apontamentos').select('*').eq('n_serie',serie).eq('source_deleted',false).order('data_hora',{ascending:false}).range(detailOffset,detailOffset+49)
   if(error){setStatus('error','Erro ao consultar histórico');return}
-  const rows=(history??[]).map(h=>`<div class="history-item"><b>${esc(h.operacao)}</b> · ${esc(h.operador||'—')}<br><small>${esc(h.hora_inicial||h.data_hora||'—')} → ${esc(h.hora_final||'aberto')}</small></div>`).join('')
+  const rows=(history??[]).map(h=>{const timeline=operationTimeline(h),duration=durationLabel(timeline.duration);return`<div class="history-item"><b>${esc(h.operacao||'Operação não informada')} — ${esc(h.operador||'Operador não informado')}</b><br><small>Início: ${esc(timeline.initial?.label||'Data/hora não disponível')}<br>Fim: ${esc(timeline.final?.label||(h.hora_final?'Data/hora não disponível':'Em aberto'))}${duration?`<br>Duração: ${esc(duration)}${timeline.crossedMidnight?' · atravessou a meia-noite':''}`:''}</small></div>`}).join('')
   if(!append)$('#details-content').innerHTML=`<h2>NS ${esc(serie)} — ${esc(c.modelo||'')}</h2><p><b>${esc(c.cliente)}</b></p><dl><dt>Entrega</dt><dd>${formatDate(c.data_entrega)}</dd><dt>Forno</dt><dd>${esc(c.status_forno)}</dd><dt>Caixa</dt><dd>${esc(c.status_caixa)}</dd><dt>Operação atual</dt><dd>${esc(c.operacao_atual||'—')}</dd></dl><h3>Histórico produtivo</h3><div id="history" class="history"></div><button id="load-history" type="button">Carregar mais histórico</button>`
   $('#history').insertAdjacentHTML('beforeend',rows||(!append?'Sem apontamentos':''));detailOffset+=(history??[]).length
   $('#load-history').hidden=(history??[]).length<50;$('#load-history').onclick=()=>detail(detailSerie,true);$('#details').showModal()
@@ -115,6 +117,7 @@ $('#login-form').onsubmit=async e=>{e.preventDefault();try{$('#login-error').tex
 $('#magic-link').onclick=async()=>{try{await magicLink($('#email').value);$('#login-error').textContent='Link enviado. Verifique seu e-mail.'}catch(x){$('#login-error').textContent=x.message}}
 $('#logout').onclick=()=>supabase.auth.signOut();$('#close-details').onclick=()=>$('#details').close()
 document.querySelectorAll('.filters input,.filters select').forEach(x=>x.oninput=render)
+$('#clear-delivery-period').onclick=()=>{$('#delivery-from').value='';$('#delivery-to').value='';$('#delivery-period-error').textContent='';render()}
 $('#finalized-period').onchange=()=>{$('#finalized-dates').hidden=$('#finalized-period').value!=='custom';render()}
 $('#metric-mode').value=state.metricMode;$('#metric-mode').onchange=e=>{state.metricMode=e.target.value;localStorage.setItem('hd-kanban-metrics',state.metricMode);render()}
 $('#view-mode').value=state.view;$('#view-mode').onchange=e=>{state.view=e.target.value;localStorage.setItem('hd-kanban-view',state.view);render()}
